@@ -1,0 +1,55 @@
+name: Nomad
+version: 1.1
+main: com.glacio.nomad.Nomad
+api-version: "1.20"
+softdepend: [Vault]
+
+permissions:
+  nomad.use:
+    description: Allows the player to use the main Nomad command
+    default: true
+  nomad.admin.info:
+    description: Allows viewing admin help menu
+    default: op
+  nomad.player.info:
+    description: Allows viewing player help menu
+    default: true
+  nomad.admin:
+    description: Gives access to all admin commands
+    default: op
+    children:
+      nomad.admin.info: true
+      nomad.refresh: true
+      nomad.settime: true
+      nomad.pool: true
+      nomad.reload: true
+  nomad.refresh:
+    description: Allows refreshing the merchant items
+    default: op
+  nomad.settime:
+    description: Allows changing the refresh time
+    default: op
+  nomad.pool:
+    description: Allows managing the item pool
+    default: op
+  nomad.reload:
+    description: Allows reloading the plugin configuration
+    default: op
+  nomad.when:
+    description: Allows viewing time until next refresh
+    default: true
+
+commands:
+  nomad:
+    description: Main command for Nomad merchant system
+    usage: |
+      /nomad - Shows help menu
+      /nomad shop - Opens the merchant menu
+      /nomad reload - Reloads the config
+      /nomad help - Shows help menu
+      /nomad refresh - Refreshes daily items (admin)
+      /nomad settime <minutes> - Changes refresh time (admin)
+      /nomad pool - Shows item pool (admin)
+      /nomad pool <add/remove> - Manages item pool (admin)
+      /nomad when - Shows time until next refresh
+    permission: nomad.use
