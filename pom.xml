@@ -6,7 +6,7 @@
 
     <groupId>com.glacio</groupId>
     <artifactId>nomad</artifactId>
-    <version>1.1.1</version>
+    <version>0.1.1</version>
     <packaging>jar</packaging>
 
     <name>Nomad</name>
@@ -61,6 +61,13 @@
                     <artifactId>bukkit</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        
+        <!-- SQLite JDBC Driver -->
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.45.1.0</version>
         </dependency>
     </dependencies>
 

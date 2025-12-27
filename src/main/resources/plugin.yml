@@ -1,5 +1,5 @@
 name: Nomad
-version: 1.1
+version: 0.1.1
 main: com.glacio.nomad.Nomad
 api-version: "1.20"
 softdepend: [Vault]
@@ -45,6 +45,9 @@ commands:
     usage: |
       /nomad - Shows help menu
       /nomad shop - Opens the merchant menu
+      /nomad stats - Shows statistics
+      /nomad stats top - Shows top spenders
+      /nomad stats items - Shows top items
       /nomad reload - Reloads the config
       /nomad help - Shows help menu
       /nomad refresh - Refreshes daily items (admin)

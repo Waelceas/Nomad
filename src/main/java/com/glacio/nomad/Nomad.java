@@ -4,6 +4,7 @@ import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -17,6 +18,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import com.glacio.nomad.database.DatabaseManager;
+import com.glacio.nomad.commands.StatsCommand;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -28,6 +31,8 @@ public class Nomad extends JavaPlugin implements CommandExecutor, Listener {
     private String menuTitle;
     private static Economy econ = null;
     private BukkitRunnable refreshScheduler;
+    private DatabaseManager databaseManager;
+    private StatsCommand statsCommand;
 
     @Override
     public void onEnable() {
@@ -91,6 +96,22 @@ public class Nomad extends JavaPlugin implements CommandExecutor, Listener {
                 getLogger().severe("Failed to start scheduler: " + e.getMessage());
                 e.printStackTrace();
                 // Don't disable the plugin for scheduler errors
+            }
+            
+            // Initialize database
+            getLogger().info("Initializing database...");
+            try {
+                databaseManager = new DatabaseManager(this);
+                if (databaseManager.connect()) {
+                    getLogger().info("Database initialized successfully!");
+                    statsCommand = new StatsCommand(this, databaseManager);
+                } else {
+                    getLogger().warning("Database initialization failed, continuing without database features.");
+                }
+            } catch (Exception e) {
+                getLogger().severe("Failed to initialize database: " + e.getMessage());
+                e.printStackTrace();
+                // Don't disable the plugin for database errors
             }
             
             getLogger().info("Nomad plugin has been enabled successfully!");
@@ -220,6 +241,14 @@ public class Nomad extends JavaPlugin implements CommandExecutor, Listener {
                     sender.sendMessage(ChatColor.RED + "Bu komutu sadece oyuncular kullanabilir.");
                 }
                 return true;
+            case "stats":
+                if (statsCommand != null) {
+                    String[] statsArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+                    return statsCommand.handleStats(sender, statsArgs);
+                } else {
+                    sender.sendMessage(ChatColor.RED + "Veritabanı bağlantısı yok!");
+                    return true;
+                }
             default:
                 sender.sendMessage(ChatColor.RED + "Bilinmeyen komut! /nomad help yazarak yardım alabilirsiniz.");
                 return true;
@@ -254,6 +283,17 @@ public class Nomad extends JavaPlugin implements CommandExecutor, Listener {
             } catch (Exception ignored) {}
         }
         player.openInventory(inv);
+        
+        // Play sound effect when menu opens
+        try {
+            String soundName = getConfig().getString("sounds.open-menu", "BLOCK_CHEST_OPEN");
+            Sound sound = Sound.valueOf(soundName);
+            player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+        } catch (Exception e) {
+            if (getConfig().getBoolean("debug", false)) {
+                getLogger().warning("Failed to play open-menu sound: " + e.getMessage());
+            }
+        }
     }
 
     @EventHandler
@@ -290,8 +330,37 @@ public class Nomad extends JavaPlugin implements CommandExecutor, Listener {
             econ.withdrawPlayer(player, price);
             player.getInventory().addItem(new ItemStack(mat, 1));
             player.sendMessage(ChatColor.GREEN + "Başarıyla satın aldınız: " + ChatColor.YELLOW + mat.name() + ChatColor.GREEN + " (-" + price + " Para)");
+            
+            // Record purchase in database
+            if (databaseManager != null) {
+                String itemName = (String) itemData.get("name");
+                if (itemName == null) itemName = mat.name();
+                databaseManager.recordPurchase(player.getUniqueId(), player.getName(), mat.name(), itemName, price);
+            }
+            
+            // Play success sound
+            try {
+                String soundName = getConfig().getString("sounds.purchase", "ENTITY_PLAYER_LEVELUP");
+                Sound sound = Sound.valueOf(soundName);
+                player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+            } catch (Exception e) {
+                if (getConfig().getBoolean("debug", false)) {
+                    getLogger().warning("Failed to play purchase sound: " + e.getMessage());
+                }
+            }
         } else {
             player.sendMessage(ChatColor.RED + "Yeterli paranız yok! Gereken: " + price + " Para");
+            
+            // Play error sound
+            try {
+                String soundName = getConfig().getString("sounds.error", "ENTITY_VILLAGER_NO");
+                Sound sound = Sound.valueOf(soundName);
+                player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+            } catch (Exception e) {
+                if (getConfig().getBoolean("debug", false)) {
+                    getLogger().warning("Failed to play error sound: " + e.getMessage());
+                }
+            }
         }
     }
 
@@ -309,6 +378,7 @@ public class Nomad extends JavaPlugin implements CommandExecutor, Listener {
         sender.sendMessage(ChatColor.GOLD + "=== Nomad Yardım ===");
         sender.sendMessage(ChatColor.YELLOW + "/nomad" + ChatColor.GRAY + " - Bu yardım menüsünü gösterir");
         sender.sendMessage(ChatColor.YELLOW + "/nomad shop" + ChatColor.GRAY + " - Ticaret menüsünü açar");
+        sender.sendMessage(ChatColor.YELLOW + "/nomad stats" + ChatColor.GRAY + " - İstatistikleri gösterir");
         
         if (isAdmin) {
             sender.sendMessage(ChatColor.RED + "--- Admin Komutları ---");
@@ -487,5 +557,22 @@ public class Nomad extends JavaPlugin implements CommandExecutor, Listener {
         }
         
         return true;
+    }
+    
+    @Override
+    public void onDisable() {
+        getLogger().info("=== Disabling Nomad v" + getDescription().getVersion() + " ===");
+        
+        // Cancel scheduler
+        if (refreshScheduler != null) {
+            refreshScheduler.cancel();
+        }
+        
+        // Disconnect database
+        if (databaseManager != null) {
+            databaseManager.disconnect();
+        }
+        
+        getLogger().info("Nomad plugin has been disabled successfully!");
     }
 }
